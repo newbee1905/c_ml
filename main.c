@@ -47,8 +47,18 @@ void rand_weights_loss_params(loss_params_t* params, size_t w_sz);
 double rand_double(void);
 double rmse(double* y_hat, double *y_true, size_t sz);
 
-void predict(loss_params_t* params, double *X_train, double *y_hat, size_t train_sz, size_t features_sz);
-void backward(loss_params_t* params, double *X_train, double *y_train, double *y_hat_e, size_t train_sz, size_t features_sz, loss_fn_t loss_fn, double loss, double lr);
+void predict(
+	loss_params_t* params,
+	double *X_train, double *y_hat,
+	size_t train_sz, size_t features_sz
+);
+
+void backward(
+	loss_params_t* params, 
+	double *X_train, double *y_train, double *y_hat_e, 
+	size_t train_sz, size_t features_sz,
+	loss_fn_t loss_fn, double loss, double lr
+);
 
 int main() {
 	srand(24);	
@@ -199,7 +209,12 @@ double rmse(double* y_hat, double *y_true, size_t sz) {
 	return sqrt(loss / (sz * 1.0f));
 }
 
-void predict(loss_params_t* params, double *X_train, double *y_hat, size_t train_sz, size_t features_sz) {
+void predict(
+	loss_params_t* params,
+	double *X_train, double *y_hat,
+	size_t train_sz, size_t features_sz
+) {
+
 	for (size_t i = 0; i < train_sz; ++i) {
 		y_hat[i] = params->w[0];
 		for (size_t j = 0; j < features_sz; ++j) {
@@ -208,7 +223,13 @@ void predict(loss_params_t* params, double *X_train, double *y_hat, size_t train
 	}
 }
 
-void backward(loss_params_t* params, double *X_train, double *y_train, double *y_hat_e, size_t train_sz, size_t features_sz, loss_fn_t loss_fn, double loss, double lr) {
+void backward(
+	loss_params_t* params, 
+	double *X_train, double *y_train, double *y_hat_e, 
+	size_t train_sz, size_t features_sz,
+	loss_fn_t loss_fn, double loss, double lr
+) {
+
 	for (size_t i = 0; i <= features_sz; ++i) {
 		params->w[i] += params->eps;
 		predict(params, X_train, y_hat_e, train_sz, features_sz);
