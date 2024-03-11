@@ -3,8 +3,8 @@ NAME        := c_ml
 SRCS        := main.c
 OBJS        := main.o
 
-CC          := gcc
-CFLAGS      := -Wall -Wextra -Werror
+CC          := clang
+CFLAGS      := -Wall -Wextra -Werror -Ofast
 LDFLAGS     := -lm
 
 RM          := rm -f

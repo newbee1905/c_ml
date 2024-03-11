@@ -3,65 +3,187 @@
 #include <time.h>
 #include <math.h>
 
-double train[][2] = {
-	{0, 0},
-	{1, 2},
-	{2, 4},
-	{3, 6},
-	{4, 8},
-	{5, 10},
-	{6, 12},
-	{7, 14},
+// double train[][2] = {
+// 	{0, 0},
+// 	{1, 2},
+// 	{2, 4},
+// 	{3, 6},
+// 	{4, 8},
+// 	{5, 10},
+// 	{6, 12},
+// 	{7, 14},
+// };
+
+double train[][5] = {
+	{1, 1, 1, 1, 4},
+	{1, 2, 1, 1, 5},
+	{1, 1, 2, 1, 5},
+	{1, 1, 1, 2, 5},
+	{1, 2, 2, 3, 8},
+	{2, 3, 3, 2, 10},
+};
+
+double test[][4] = {
+	{10, 10, 10, 10},
+	{19, 21, 12, 15},
 };
 
 #define train_count (sizeof(train) / sizeof(train[0]))
+#define test_count (sizeof(test) / sizeof(test[0]))
+
+typedef struct {
+	double* w;
+	double* dw;
+	double eps;
+} loss_params_t;
+
+typedef double (*loss_fn_t)(double *, double *, size_t);
+
+loss_params_t* init_loss_params(size_t sz, double eps);
+void free_loss_params(loss_params_t* params);
+void zero_weights_loss_params(loss_params_t* params, size_t w_sz);
+void rand_weights_loss_params(loss_params_t* params, size_t w_sz);
 
 double rand_double(void);
 double rmse(double* y_hat, double *y_true, size_t sz);
 
+void predict(loss_params_t* params, double *X_train, double *y_hat, size_t train_sz, size_t features_sz);
+void backward(loss_params_t* params, double *X_train, double *y_train, double *y_hat_e, size_t train_sz, size_t features_sz, loss_fn_t loss_fn, double loss, double lr);
+
 int main() {
 	srand(24);	
 
-	double w = rand_double() * 10.0f;
-	double lr = 1e-3;
-	double e = 1e-7;
+	double lr = 1e-2;
+	size_t epoch_nums = 5e4;
 
-	double *X_train = malloc(train_count * sizeof(*X_train));
+	// size_t features_sz = 1;
+	size_t features_sz = 4;
+
+	double *X_train = malloc((train_count * features_sz + 1) * sizeof(*X_train));
 	double *y_train = malloc(train_count * sizeof(*y_train));
 	double *y_hat = malloc(train_count * sizeof(*y_train));
 	double *y_hat_e = malloc(train_count * sizeof(*y_train));
 
-	for (size_t i = 0; i < train_count; ++i) {
-		X_train[i] = train[i][0];
-		y_train[i] = train[i][1];
-	}
+	double *X_test = malloc((test_count * features_sz + 1) * sizeof(*X_test));
+	double *y_test = malloc(test_count * sizeof(*y_test));
 
-	for (size_t epoch = 0; epoch < 5000; ++epoch) {
-		for (size_t i = 0; i < train_count; ++i) {
-			y_hat[i] = X_train[i] * w;
-			y_hat_e[i] = X_train[i] * (w + e);
+	loss_params_t* params = init_loss_params(train_count + 1, 0.0f);
+	rand_weights_loss_params(params, features_sz + 1);
+
+	for (size_t i = 0; i < train_count; ++i) {
+		for (size_t j = 0; j < features_sz; ++j) {
+			X_train[i * features_sz + j] = train[i][j];
 		}
-		double loss = rmse(y_hat, y_train, train_count);
-		double loss_e = rmse(y_hat_e, y_train, train_count);
-		double diff_w = (loss_e - loss) / e;
-		w -= lr * diff_w;
-		printf("rmse = %lf, w = %lf\n", loss, w);
+		y_train[i] = train[i][features_sz];
 	}
+
+	for (size_t i = 0; i < test_count; ++i) {
+		for (size_t j = 0; j < features_sz; ++j) {
+			X_test[i * features_sz + j] = test[i][j];
+		}
+	}
+
+	loss_fn_t loss_fn = rmse;
+
+	for (size_t epoch = 0; epoch < epoch_nums; ++epoch) {
+		predict(params, X_train, y_hat, train_count, features_sz);
+		double loss = (*loss_fn)(y_train, y_hat, train_count);
+		printf("%lf\n", loss);
+		backward(params, X_train, y_train, y_hat_e, train_count, features_sz, loss_fn, loss, lr);
+	}
+
+	printf("\n------------------------------\n\n");
+	printf("WEIGHTS :\n");
+
+	for (size_t j = 0; j <= features_sz; ++j) {
+		printf("%lf, ", params->w[j]);
+	}
+	printf("\n");
+
+	printf("\n------------------------------\n\n");
+	printf("TRAIN:\n");
+	predict(params, X_train, y_hat, train_count, features_sz);
 
 	for (size_t i = 0; i < train_count; ++i) {
-		y_hat[i] = X_train[i] * w;
-		printf("X_train: %lf, y_train: %lf, y_hat: %lf\n", X_train[i], y_train[i], y_hat[i]);
+		for (size_t j = 0; j < features_sz; ++j) {
+			printf("%lf, ", X_train[i * features_sz + j]);
+		}
+		printf("(%lf) ", y_train[i]);
+		printf("-> %lf\n", y_hat[i]);
 	}
-	double loss = rmse(y_hat, y_train, train_count);
 
-	printf("------------------------------\n");
-	printf("RMSE %lf\n", loss);
+	double loss = (*loss_fn)(y_train, y_hat, train_count);
+
+	printf("LOSS %lf\n", loss);
+
+	printf("\n------------------------------\n\n");
+
+	printf("Validating: \n");
+	predict(params, X_test, y_test, test_count, features_sz);
+
+	for (size_t i = 0; i < test_count; ++i) {
+		double sum = 0.0;
+		for (size_t j = 0; j < features_sz; ++j) {
+			sum += X_test[i * features_sz + j];
+			printf("%lf, ", X_test[i * features_sz + j]);
+		}
+		printf("(%lf) ", sum);
+		printf("-> %lf\n", y_test[i]);
+	}
 
 	free(X_train);
 	free(y_train);
 	free(y_hat);
 	free(y_hat_e);
+	free(X_test);
+	free(y_test);
+	free_loss_params(params);
 	return 0;
+}
+
+loss_params_t* init_loss_params(size_t sz, double eps) {
+	loss_params_t* params = malloc(sizeof(loss_params_t));
+
+	if (params == NULL) {
+		return NULL;
+	}
+
+	params->w = malloc(sz * sizeof(double));
+	if (params->w == NULL) {
+		free(params);
+		return NULL;
+	}
+	params->dw = malloc(sz * sizeof(double));
+	if (params->dw == NULL) {
+		free(params->w);
+		free(params);
+		return NULL;
+	}
+
+	if (eps > 0) {
+		params->eps = eps;
+	} else {
+		params->eps = 1e-7;
+	}
+
+	return params;
+}
+
+void free_loss_params(loss_params_t* params) {
+	if (params != NULL) {
+		free(params->w);
+		free(params->dw);
+		free(params);
+		params = NULL;
+	}
+}
+
+void zero_weights_loss_params(loss_params_t* params, size_t w_sz) {
+	for (size_t i = 0; i < w_sz; params->w[i++] = 0);
+}
+
+void rand_weights_loss_params(loss_params_t* params, size_t w_sz) {
+	for (size_t i = 0; i < w_sz; params->w[i++] = rand_double() * 10.0f);
 }
 
 double rand_double(void) {
@@ -75,4 +197,27 @@ double rmse(double* y_hat, double *y_true, size_t sz) {
 	}
 
 	return sqrt(loss / (sz * 1.0f));
+}
+
+void predict(loss_params_t* params, double *X_train, double *y_hat, size_t train_sz, size_t features_sz) {
+	for (size_t i = 0; i < train_sz; ++i) {
+		y_hat[i] = params->w[0];
+		for (size_t j = 0; j < features_sz; ++j) {
+			y_hat[i] += X_train[i * features_sz + j] * params->w[j + 1];
+		}
+	}
+}
+
+void backward(loss_params_t* params, double *X_train, double *y_train, double *y_hat_e, size_t train_sz, size_t features_sz, loss_fn_t loss_fn, double loss, double lr) {
+	for (size_t i = 0; i <= features_sz; ++i) {
+		params->w[i] += params->eps;
+		predict(params, X_train, y_hat_e, train_sz, features_sz);
+		double loss_e = (*loss_fn)(y_train, y_hat_e, train_sz);
+		params->dw[i] = (loss_e - loss) / params->eps;
+		params->w[i] -= params->eps;
+	}
+
+	for (size_t i = 0; i <= features_sz; ++i) {
+		params->w[i] -= params->dw[i] * lr;
+	}
 }
