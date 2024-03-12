@@ -1,35 +1,53 @@
-NAME        := c_ml
+NAME = c_ml
 
-SRCS        := main.c
-OBJS        := main.o
+CC = gcc
+CFLAGS = -Wall -Wextra -Iinclude
+LDFLAGS = -Llib
+LDLIBS = -l$(NAME) -lm
 
-CC          := clang
-CFLAGS      := -Wall -Wextra -Werror -Ofast
-LDFLAGS     := -lm
+SRCDIR = src
+INCDIR = include
+BINDIR = bin
+OBJDIR = obj
+LIBDIR = lib
 
-RM          := rm -f
-MAKEFLAGS   += --no-print-directory
+DEMO_SRC = main.c
+SRCS := $(wildcard $(SRCDIR)/*.c)
+OBJS := $(filter-out $(OBJDIR)/main.o, $(SRCS:$(SRCDIR)/%.c=$(OBJDIR)/%.o))
+LIB = $(LIBDIR)/lib$(NAME).a
+EXECUTABLE = $(NAME)
 
-all: $(NAME)
+.PHONY: all clean library
 
-$(NAME): $(OBJS)
-	$(CC) $(OBJS) $(LDFLAGS) -o $(NAME)
+all: $(BINDIR)/$(EXECUTABLE)
+
+$(BINDIR)/$(EXECUTABLE): $(OBJS) $(LIB) | $(BINDIR)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(DEMO_SRC) $^ -o $@ $(LDLIBS)
+
+$(OBJDIR)/%.o: $(SRCDIR)/%.c | $(OBJDIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(LIB): $(OBJS) | $(LIBDIR)
+	ar rcs $@ $^
+
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
+
+$(BINDIR):
+	mkdir -p $(BINDIR)
+
+$(LIBDIR):
+	mkdir -p $(LIBDIR)
 
 clean:
-	$(RM) $(OBJS)
-
-fclean: clean
-	$(RM) $(NAME)
-
-re:
-	$(MAKE) fclean
-	$(MAKE) all
+	$(RM) -r $(BINDIR) $(OBJDIR) $(LIB)
 
 mem_check:
 	valgrind --leak-check=full \
 		 --show-leak-kinds=all \
 		 --track-origins=yes \
 		 --verbose \
-		 ./$(NAME)
+		 $(BINDIR)/$(EXECUTABLE)
 
-.PHONY: clean fclean re
+library: $(LIB)
+
