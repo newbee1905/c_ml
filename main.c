@@ -3,17 +3,6 @@
 #include <time.h>
 #include <math.h>
 
-// double train[][2] = {
-// 	{0, 0},
-// 	{1, 2},
-// 	{2, 4},
-// 	{3, 6},
-// 	{4, 8},
-// 	{5, 10},
-// 	{6, 12},
-// 	{7, 14},
-// };
-
 double train[][5] = {
 	{1, 1, 1, 1, 4},
 	{1, 2, 1, 1, 5},
@@ -39,10 +28,10 @@ typedef struct {
 
 typedef double (*loss_fn_t)(double *, double *, size_t);
 
-loss_params_t* init_loss_params(size_t sz, double eps);
-void free_loss_params(loss_params_t* params);
-void zero_weights_loss_params(loss_params_t* params, size_t w_sz);
-void rand_weights_loss_params(loss_params_t* params, size_t w_sz);
+loss_params_t* loss_params_init(size_t sz, double eps);
+void loss_params_free(loss_params_t* params);
+void loss_params_zero_weights(loss_params_t* params, size_t w_sz);
+void loss_params_zero_weight(loss_params_t* params, size_t w_sz);
 
 double rand_double(void);
 double rmse(double* y_hat, double *y_true, size_t sz);
@@ -63,10 +52,9 @@ void backward(
 int main() {
 	srand(24);	
 
-	double lr = 1e-2;
+	double lr = 1e-3;
 	size_t epoch_nums = 5e4;
 
-	// size_t features_sz = 1;
 	size_t features_sz = 4;
 
 	double *X_train = malloc((train_count * features_sz + 1) * sizeof(*X_train));
@@ -77,8 +65,8 @@ int main() {
 	double *X_test = malloc((test_count * features_sz + 1) * sizeof(*X_test));
 	double *y_test = malloc(test_count * sizeof(*y_test));
 
-	loss_params_t* params = init_loss_params(train_count + 1, 0.0f);
-	rand_weights_loss_params(params, features_sz + 1);
+	loss_params_t* params = loss_params_init(train_count + 1, 0.0f);
+	loss_params_zero_weight(params, features_sz + 1);
 
 	for (size_t i = 0; i < train_count; ++i) {
 		for (size_t j = 0; j < features_sz; ++j) {
@@ -147,11 +135,11 @@ int main() {
 	free(y_hat_e);
 	free(X_test);
 	free(y_test);
-	free_loss_params(params);
+	loss_params_free(params);
 	return 0;
 }
 
-loss_params_t* init_loss_params(size_t sz, double eps) {
+loss_params_t* loss_params_init(size_t sz, double eps) {
 	loss_params_t* params = malloc(sizeof(loss_params_t));
 
 	if (params == NULL) {
@@ -179,7 +167,7 @@ loss_params_t* init_loss_params(size_t sz, double eps) {
 	return params;
 }
 
-void free_loss_params(loss_params_t* params) {
+void loss_params_free(loss_params_t* params) {
 	if (params != NULL) {
 		free(params->w);
 		free(params->dw);
@@ -188,12 +176,12 @@ void free_loss_params(loss_params_t* params) {
 	}
 }
 
-void zero_weights_loss_params(loss_params_t* params, size_t w_sz) {
+void loss_params_zero_weights(loss_params_t* params, size_t w_sz) {
 	for (size_t i = 0; i < w_sz; params->w[i++] = 0);
 }
 
-void rand_weights_loss_params(loss_params_t* params, size_t w_sz) {
-	for (size_t i = 0; i < w_sz; params->w[i++] = rand_double() * 10.0f);
+void loss_params_zero_weight(loss_params_t* params, size_t w_sz) {
+	for (size_t i = 0; i < w_sz; params->w[i++] = rand_double());
 }
 
 double rand_double(void) {
